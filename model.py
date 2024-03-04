@@ -247,19 +247,6 @@ class UAVEnvironment:
         distance, speed, angle = action
 
 
-        #some signal calculation
-        # d_t = [np.sqrt(self.height ** 2 + (self.iotd_loc[i][0] - self.current_x) ** 2 + (self.iotd_loc[i][1] - self.current_y) ** 2) for i in range(self.m)]
-        # O_t = [(180 / np.pi) * np.arcsin(self.height / d) for d in d_t]
-        # P_t_LOS = [(1 / (1 + self.c * np.exp(-self.path_loss_alpha * (o - self.propagation_c)))) for o in O_t]
-        # b_0 = (4 * np.pi * self.carrier_frequency / self.c) ** (-self.path_loss_alpha)
-        # b_t = [P_t_LOS[i] * b_0 * (d_t[i] ** self.path_loss_alpha) / self.los_n1 + (1 - P_t_LOS[i]) * b_0 * (d_t[i] ** self.path_loss_alpha) / self.nlos_n2 for i in range(self.m)]
-        # bandwidth_t = [self.scheduled_iotds[i] * self.max_bandwidth / sum(self.scheduled_iotds) for i in range(self.m)]
-        # R_t_m = [bandwidth_t[i] * np.log2(1 + (self.p[i] * b_t[i]) / self.noise_power ** 2) for i in range(self.m)]
-        # b_t_uav = self.max_bandwidth
-        # R_t_uav = b_t_uav * np.log2(1 + (self.p_uav * b_t_uav) / self.noise_power ** 2)
-        # D_up_t = max(self.scheduled_iotds[i] * self.data_to_transmit[i] / R_t_m[i] for i in range(self.m))
-        # E_t = [self.p[i] * self.data_to_transmit[i] / R_t_m[i] for i in range(self.m)]
-        # E_t_IOTD = sum(E_t)
 
         d_t = [np.sqrt(self.height ** 2 + (self.iotd_loc[i][0] - self.current_x) ** 2 + (self.iotd_loc[i][1] - self.current_y) ** 2) for i in range(self.m)]
         O_t = [(180 / np.pi) * np.arcsin(self.height / d) for d in d_t]
@@ -317,42 +304,12 @@ class UAVEnvironment:
 
         A_t = sum(self.aoi_iotds[i] for i in range(self.m))
         reward = -A_t - self.transmission_weight * E_t_IOTD - self.uav_weight * E_t_UAV - h_penalty + h_award
-        
-        # New: Adjust the reward to incentivize reducing AoI
-        # Penalize higher AoI and reward lower AoI
-
-        
-        # Adjust UAV movement to maximize coverage of IoT devices
-        # For simplicity, let's assume the UAV moves towards the IoT device with the highest AoI
-        max_aoi_index = np.argmax(self.aoi_iotds)
-        target_x, target_y = self.iotd_loc[max_aoi_index]
-
-        # Calculate the distance and angle to the target IoT device
-        distance = np.sqrt((target_x - self.current_x) ** 2 + (target_y - self.current_y) ** 2)
-        angle = np.arctan2(target_y - self.current_y, target_x - self.current_x)
-
-        # Take the minimum of distance and the UAV's maximum movement distance
-        distance = min(distance, self.v)
-        
-        # # Update UAV's position
-        new_x = self.current_x + distance * np.cos(angle)
-        new_y = self.current_y + distance * np.sin(angle)
-
-        # # Ensure UAV stays within the environment's bounds
-        new_x = min(max(0, new_x), self.x_max)
-        new_y = min(max(0, new_y), self.y_max)
-
-        # # Update current position
-        
-        done = self.current_time_block >= LAST_TIME_IOTD
 
         self.current_x = new_x
         self.current_y = new_y
         
         self.path_taken_x.append(self.current_x)
         self.path_taken_y.append(self.current_y)
-
-        
 
         done = (sum(self.scheduled_iotds) == 0)
         self.buffer.add((self.current_x, self.current_y, *self.aoi_iotds, *self.scheduled_iotds), action, reward, (new_x, new_y, *self.aoi_iotds, *self.scheduled_iotds), done)
@@ -428,7 +385,7 @@ for episode in range(1, max_episodes + 1):
         # for i in range(M):
         #     if env.scheduled_iotds[i] == 0 and last_schedule[i] == 1:
         #         print("IOTD", i, "has been unscheduled")
-        #         print("Current UAV positioon:", env.current_x, env.current_y)
+        #         print("Current UAV position:", env.current_x, env.current_y)
         #         print("IOTD position:", env.iotd_loc[i][0], env.iotd_loc[i][1])
         #         env.render()
         # last_schedule = env.scheduled_iotds
